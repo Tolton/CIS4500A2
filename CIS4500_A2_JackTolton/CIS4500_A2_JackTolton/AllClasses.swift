@@ -68,6 +68,8 @@ class Choice {
     }
     
 }
+
+
 class Room {
     var roomID = ""
     var roomExplain = ""
@@ -75,6 +77,8 @@ class Room {
     var reqItem = ""
     var newItem = ""
     var reqExplain = ""
+    var itemExplain = ""
+    var foundItem = [String]()
     
     init(_ parse:String) {
         var index = parse.index(parse.startIndex, offsetBy: 1)
@@ -98,9 +102,16 @@ class Room {
         for row in self.options {
             newArray.append(row.getChoice())
         }
-        //newArray.append(self.options.getChoice())
         return newArray
-        
+    }
+    func getRoomInfoItem() -> Array<String>{
+        var newArray = [String]()
+        newArray.append(self.roomExplain + "\n")
+        newArray.append(self.itemExplain + "\n")
+        for row in self.options {
+            newArray.append(row.getChoice())
+        }
+        return newArray
     }
     func getRoomID() -> String {
         return self.roomID
@@ -120,53 +131,38 @@ class Room {
             self.options[index].addRequirement(parse)
         }
     }
+    func addItems(_ parse:String) {
+        var newStr = parse.components(separatedBy: "\"")
+        for num in 1..<newStr.count {
+            var index = newStr.index(newStr.startIndex, offsetBy: num)
+            if num == 1 {
+                self.itemExplain = newStr[index]
+            } else {
+                self.foundItem.append(newStr[index])
+            }
+        }
+    }
+    /* returns true if there is an item the player does not have, false otherwise*/
+    func checkInvy(_ invy:Array<String>) -> Bool {
+        var count = 0
+        if self.foundItem.count > invy.count {
+            return true
+        }
+        for item in self.foundItem {
+            if invy.contains(item) {
+                count = count + 1
+            }
+            if count == self.foundItem.count {
+                return false
+            }
+        }
+        if count < self.foundItem.count {
+            return true
+        }
+        return false
+    }
+    func newItemToInvy() -> Array<String> {
+        return self.foundItem
+    }
     //func addRoomInteraction(_ newAct:)
 }
-
-class Inventory {
-    var items = [String]()
-
-    init() {
-        self.items = [""]
-    }
-    func addInvy(_ invyStr:String) -> String{
-        var newItem = ""
-        
-        var newStr = invyStr.components(separatedBy: "\"")
-        let retStr = newStr[newStr.startIndex]
-        for i in 1..<newStr.count {
-            let index = newStr.index(newStr.startIndex, offsetBy: i)
-            newItem = newStr[index]
-            if !self.items.contains(newItem) {
-                self.items.append(newItem)
-            }
-        }
-        return retStr
-    }
-    func removeInvy(_ remove:String) {
-        if self.items.contains(remove) {
-            if let location = self.items.index(of: remove) {
-                self.items.remove(at: location)
-            }
-        }
-    }
-    func replaceInvy(_ oldItem:String, _ newItem:String) {
-        if self.items.contains(oldItem) && self.items.contains(newItem) {
-            //addInvy(newItem)
-            removeInvy(oldItem)
-        }
-        
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-

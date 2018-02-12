@@ -15,6 +15,7 @@ class ViewController: UIViewController {
     @IBOutlet weak var ExecuteChoice: UIButton!
     private var roomArray = [Room]()
     private var currRoom = ""
+    private var inventory = [String]()
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
@@ -44,9 +45,7 @@ class ViewController: UIViewController {
         var action = StoryField.text!
         if action > "0" && action <= "9" {
             for row in self.roomArray {
-                
                 if self.currRoom == row.getRoomID() {
-                    
                     if action <= String(row.options.count) {
                         let nextRoom = row.getChoice(Int(action)!)
                         loadRoom(nextRoom)
@@ -62,7 +61,14 @@ class ViewController: UIViewController {
         var nextStory = [String]()
         for row in self.roomArray {
             if nextRoom == row.getRoomID() {
-                nextStory = row.getRoomInfo()
+                
+                if row.checkInvy(self.inventory) {
+                    self.inventory = self.inventory + row.newItemToInvy()
+                    nextStory = row.getRoomInfoItem()
+                } else {
+                    nextStory = row.getRoomInfo()
+                }
+                
             }
         }
         StoryView.text = ""
@@ -74,7 +80,7 @@ class ViewController: UIViewController {
     func loadFirstRoom() {
         
         var index = self.roomArray.index(self.roomArray.startIndex, offsetBy: 0)
-        var firstInfo = self.roomArray[index].getRoomInfo()
+        let firstInfo = self.roomArray[index].getRoomInfo()
         self.currRoom = self.roomArray[index].getRoomID()
         for row in firstInfo {
             StoryView.text = StoryView.text + row + "\n"
@@ -93,7 +99,7 @@ class ViewController: UIViewController {
                 currLine = ""
             }
         }
-        let myInventory = Inventory()
+        
        
         
         var newRoom = Room()
@@ -110,7 +116,7 @@ class ViewController: UIViewController {
                 case "-":
                     let index = line.index(line.startIndex, offsetBy: 2)
                     if line[index] == "n" {
-                        //myInventory.addInvy(line)
+                        newRoom.addItems(line)
                     } else if line[index] == "f" {
                         //StoryView.text = StoryView.text + String(lastLine) + "\n"
                         
