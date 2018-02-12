@@ -13,6 +13,7 @@ class ViewController: UIViewController {
     
     @IBOutlet weak var StoryField: UITextField!
     @IBOutlet weak var ExecuteChoice: UIButton!
+    @IBOutlet weak var InventoryView: UITextView!
     private var roomArray = [Room]()
     private var currRoom = ""
     private var inventory = [String]()
@@ -24,84 +25,168 @@ class ViewController: UIViewController {
         // Read from the file
         var readStringProject = ""
         do {
+            self.view.backgroundColor = UIColor.blue
+            StoryView.isEditable = false
+            InventoryView.isEditable = false
+            
             readStringProject = try String(contentsOfFile: fileURLProject!, encoding: String.Encoding.utf8)
             
-            //StoryView.text = readStringProject
-            var roomArray = parseContent(readStringProject)
+            
+            parseContent(readStringProject)
             loadFirstRoom()
             
-            /*StoryView.text = ""
-            for row in self.roomArray {
-                var newThing = row.getRoomInfo()
-                for line in newThing {
-                    StoryView.text = StoryView.text  + line + "\n"
-                }
-            }*/
-        } catch let _ as NSError {
+        } catch _ as NSError {
             //print("Failed reading from URL: \(fileURL), Error: " + error.localizedDescription)
         }
     }
     @IBAction func ExecuteChoice(_ sender: Any) {
-        var action = StoryField.text!
+        let action = StoryField.text!
+        StoryField.text = ""
+        InventoryView.text = "Type i to view your inventory."
         if action > "0" && action <= "9" {
             for row in self.roomArray {
                 if self.currRoom == row.getRoomID() {
+                    if row.getEnd() == 1 {
+                        if action == "1" {
+                            //start over
+                            selfDestruct()
+                            self.viewDidLoad()
+                        }
+                        if action == "2" {
+                            exit(0)
+                        }
+                    }
                     if action <= String(row.options.count) {
-                        let nextRoom = row.getChoice(Int(action)!)
-                        loadRoom(nextRoom)
-                        break
+                        var reqArray = row.checkForReqs(Int(action)!)
+                        reqArray = reqArray.filter{$0 != ""}
+                        if reqArray.count > 0 {
+                            var index = reqArray.index(reqArray.startIndex, offsetBy: 0)
+                            if self.inventory.contains(reqArray[index]) {
+                                index = reqArray.index(reqArray.startIndex, offsetBy: 1)
+                                let nextRoom = reqArray[index]
+                                
+                                loadRoom(nextRoom)
+                                break
+                            } else {
+                                index = reqArray.index(reqArray.startIndex, offsetBy: 2)
+                                StoryView.text = StoryView.text + reqArray[index] + "\n"
+                            }
+                        } else {
+                            let nextRoom = row.getChoice(Int(action)!)
+                            loadRoom(nextRoom)
+                            break
+                        }
                     }
                 }
             }
+            // if user tries to access inventory
         } else if action == "i" || action == "I" {
-            //open invy
+            InventoryView.text = "Inventory:\n"
+            for row in self.inventory {
+                
+                InventoryView.text = InventoryView.text + row + "\n"
+            }
         }
     }
+    
+    //clear arrays and reset
+    func selfDestruct() {
+        self.roomArray.removeAll()
+        self.currRoom = ""
+        self.inventory.removeAll()
+    }
+    
+    //give ending text
+    func askEnd() {
+        StoryView.text = StoryView.text + "1. Start again.\n"
+        StoryView.text = StoryView.text + "2. Exit.\n"
+    }
+    
+    //load the current room into the view
     func loadRoom(_ nextRoom:String) {
         var nextStory = [String]()
+        StoryView.text = ""
+        var count = 0
+        var ending = 0
         for row in self.roomArray {
             if nextRoom == row.getRoomID() {
-                
-                if row.checkInvy(self.inventory) {
-                    self.inventory = self.inventory + row.newItemToInvy()
-                    nextStory = row.getRoomInfoItem()
-                } else {
-                    nextStory = row.getRoomInfo()
+                count = 0
+                if row.getEnd() == 1 {
+                    ending = 1
                 }
+                    if row.checkInvy(self.inventory) {
+                        self.inventory = self.inventory + row.newItemToInvy()
+                        self.inventory = Array(Set(self.inventory))
+                        self.inventory = self.inventory.filter{$0 != " "}
+                        self.inventory = self.inventory.filter{$0 != ""}
+                        count = 1
+                    }
+                    var newArray = row.checkReqs(self.inventory)
+                    if newArray.count > 0 {
+                        if newArray.count == 3 {
+                            var index = newArray.index(newArray.startIndex, offsetBy: 0)
+                            self.inventory = self.inventory.filter{$0 != newArray[index]}
+                            index = newArray.index(newArray.startIndex, offsetBy: 1)
+                            self.inventory.append(newArray[index])
+                            self.inventory = Array(Set(self.inventory))
+                            index = newArray.index(newArray.startIndex, offsetBy: 2)
+                            nextStory.append(newArray[index])
+                            
+                            if count > 0 {
+                                count = 3
+                            } else {
+                                count = 2
+                            }
+                        }
+                        
+                    }
+                    nextStory = row.getRoomInfo(count)
                 
             }
         }
-        StoryView.text = ""
+        
         for row in nextStory {
             StoryView.text = StoryView.text + row + "\n"
         }
         self.currRoom = nextRoom
+        if ending == 1 {
+            askEnd()
+            StoryView.text = StoryView.text + "\n"
+        }
+        InventoryView.text = "Type i to view your inventory."
     }
+    
+    //load the first room into the view
     func loadFirstRoom() {
-        
-        var index = self.roomArray.index(self.roomArray.startIndex, offsetBy: 0)
-        let firstInfo = self.roomArray[index].getRoomInfo()
+        var count = 0
+        let index = self.roomArray.index(self.roomArray.startIndex, offsetBy: 0)
+        if self.roomArray[index].checkInvy(self.inventory) {
+            count = 1
+        }
+        let firstInfo = self.roomArray[index].getRoomInfo(count)
         self.currRoom = self.roomArray[index].getRoomID()
         for row in firstInfo {
             StoryView.text = StoryView.text + row + "\n"
         }
+        InventoryView.text = "Type i to view your inventory."
     }
     
-    func parseContent(_ story:String) -> Array<Room>{
+    //parse the content of the file into classes and arrays
+    func parseContent(_ story:String) {
         StoryView.text = ""
         var lineArray = [String]()
         var currLine = ""
         for line in story {
-            if line != "\n" {
+            if line != "\n" && line != "\0" {
                 currLine += String(line)
             } else {
                 lineArray.append(currLine)
                 currLine = ""
             }
         }
-        
-       
-        
+        if currLine != "" {
+            lineArray.append(currLine)
+        }
         var newRoom = Room()
         for line in lineArray {
             let charIndex = line[line.startIndex]
@@ -109,39 +194,25 @@ class ViewController: UIViewController {
             switch charIndex {
                 case "<":
                 //new room
-                   
                     newRoom = Room(line)
                     self.roomArray.append(newRoom)
-                    //StoryView.text = StoryView.text + newRoom.getStr() + "\n"
                 case "-":
-                    let index = line.index(line.startIndex, offsetBy: 2)
-                    if line[index] == "n" {
-                        newRoom.addItems(line)
-                    } else if line[index] == "f" {
-                        //StoryView.text = StoryView.text + String(lastLine) + "\n"
-                        
+                    let prefixLine = line.prefix(3)
+                    if prefixLine == "-if" {
                         newRoom.addRequirement(line)
-                        
-                        
-                        //StoryView.text = StoryView.text + String(myInt) + "\n"
+                    } else if prefixLine == "-in" {
+                        newRoom.addItems(line)
+                    } else if prefixLine == "-en" {
+                        newRoom.setEnd()
                     }
-                
-                
                 case "0"..."9":
-                //new invy or if
-                //case 0...9:
                     let newChoice = Choice(line)
                     newRoom.addChoice(newChoice)
-                    //StoryView.text = StoryView.text + newChoice.getStr() + "\n"
-                //new decision
             default:
                 let _ = ""
             }
             
-            //StoryView.text = StoryView.text + String(newRoom.numChoices()) + "\n"
         }
-        
-        return roomArray
         
     }
 
